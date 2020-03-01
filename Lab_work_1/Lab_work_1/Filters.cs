@@ -229,6 +229,62 @@ namespace Lab_work_1
         }
     }
 
+    class MedianFilter : Filters
+    {
+        private
+            int size;
+        public MedianFilter(int size)
+        {
+            this.size = size;
+        }
+        public override Bitmap processImage(Bitmap sourseImage, BackgroundWorker worker)
+        {
+            Bitmap resultImage = new Bitmap(sourseImage.Width, sourseImage.Height);
+            int N = 3;
+            int radius = (int)(N / 2);
+            
+            for (int i = radius; i < sourseImage.Width - radius; i++)
+            {
+                worker.ReportProgress((int)((float)i / resultImage.Width * 100));
+                if (worker.CancellationPending)
+                    return null;
+                for (int j = radius; j < sourseImage.Height - radius; j++)
+                {
+                    resultImage.SetPixel(i, j, calculateNewPixelColor(sourseImage, i, j));
+                }
+            }
+            return resultImage;
+        }
+
+        protected override Color calculateNewPixelColor(Bitmap sourseImage, int x, int y)
+        {
+            Color sourceColor = sourseImage.GetPixel(x, y);
+            int radius = (size / 2);
+            int ind_median = size * size / 2;
+
+            int[] local_R = new int [9];
+            int[] local_G = new int [9];
+            int[] local_B = new int [9];
+
+            int k = 0;
+            for (int i = x - radius; i <= x + radius; i++)
+                for (int j = y - radius; j <= y + radius; j++)
+                {
+                    local_R[k] = sourseImage.GetPixel(i, j).R;
+                    local_G[k] = sourseImage.GetPixel(i, j).G;
+                    local_B[k] = sourseImage.GetPixel(i, j).B;
+                    k++;
+                }
+            Array.Sort(local_R);
+            Array.Sort(local_G);
+            Array.Sort(local_B);
+
+
+            Color resultColor = Color.FromArgb(local_R[ind_median], local_G[ind_median], local_B[ind_median]);
+            return resultColor;
+        }
+    }
+
 
     //Матричные фильтры
 
@@ -344,6 +400,74 @@ namespace Lab_work_1
         }
     }
 
+    class SobelFilter : MatrixFilter
+    {
+        protected float[,] xkernel = null;
+        protected float[,] ykernel = null;
+
+        public SobelFilter()
+        {
+            int size = 3;
+            xkernel = new float[size, size];
+            xkernel[0, 0] = -1.0f; xkernel[0, 1] = 0.0f; xkernel[0, 2] = 1.0f;
+            xkernel[1, 0] = -2.0f; xkernel[1, 1] = 0.0f; xkernel[1, 1] = 2.0f;
+            xkernel[2, 0] = -1.0f; xkernel[2, 1] = 0.0f; xkernel[2, 2] = 1.0f;
+            ykernel = new float[size, size];
+            ykernel[0, 0] = -1.0f; ykernel[0, 1] = -2.0f; ykernel[0, 2] = -1.0f;
+            ykernel[1, 0] = 0.0f; ykernel[1, 1] = 0.0f; ykernel[1, 1] = 0.0f;
+            ykernel[2, 0] = 1.0f; ykernel[2, 1] = 2.0f; ykernel[2, 2] = 1.0f;
+        }
+
+        protected override Color calculateNewPixelColor(Bitmap sourceImage, int x, int y)
+        {
+            int xradiusX = xkernel.GetLength(0) / 2;
+            int xradiusY = xkernel.GetLength(1) / 2;
+            float xresultR = 0.0f;
+            float xresultG = 0.0f;
+            float xresultB = 0.0f;
+            for (int l = -xradiusY; l <= xradiusY; l++)
+            {
+                for (int k = -xradiusX; k <= xradiusX; k++)
+                {
+                    int idX = Clamp(x + k, 0, sourceImage.Width - 1);
+                    int idY = Clamp(y + l, 0, sourceImage.Height - 1);
+                    Color neighborColor = sourceImage.GetPixel(idX, idY);
+                    xresultR += neighborColor.R * xkernel[k + xradiusX, l + xradiusY];
+                    xresultG += neighborColor.G * xkernel[k + xradiusX, l + xradiusY];
+                    xresultB += neighborColor.B * xkernel[k + xradiusX, l + xradiusY];
+                }
+            }
+
+            int yradiusX = ykernel.GetLength(0) / 2;
+            int yradiusY = ykernel.GetLength(1) / 2;
+            float yresultR = 0.0f;
+            float yresultG = 0.0f;
+            float yresultB = 0.0f;
+            for (int l = -yradiusY; l <= yradiusY; l++)
+            {
+                for (int k = -yradiusX; k <= yradiusX; k++)
+                {
+                    int idX = Clamp(x + k, 0, sourceImage.Width - 1);
+                    int idY = Clamp(y + l, 0, sourceImage.Height - 1);
+                    Color neighborColor = sourceImage.GetPixel(idX, idY);
+                    yresultR += neighborColor.R * ykernel[k + yradiusX, l + yradiusY];
+                    yresultG += neighborColor.G * ykernel[k + yradiusX, l + yradiusY];
+                    yresultB += neighborColor.B * ykernel[k + yradiusX, l + yradiusY];
+                }
+            }
+
+            float result = xresultR * xresultR + xresultG * xresultG + xresultB * xresultB;
+            result += yresultR * yresultR + yresultG * yresultG + yresultB * yresultB;
+            result = (float)Math.Sqrt(result);
+
+            return Color.FromArgb(Clamp((int)result, 0, 255),
+                                  Clamp((int)result, 0, 255),
+                                  Clamp((int)result, 0, 255));
+        }
+    }
+
 }
+
+
 
   
